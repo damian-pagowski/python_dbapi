@@ -27,14 +27,21 @@ DB_URL = 'postgresql://{user}:{pw}@{url}/{db}'.format(user=POSTGRES_USER,pw=POST
 app.config['SQLALCHEMY_DATABASE_URI'] = DB_URL
 db = SQLAlchemy(app)
 
+# Initialize flask migrate
+from flask_migrate import Migrate
+migrate = Migrate(app, db)
+
+
 #  model
 class Todo(db.Model):
     __tablename__ = 'todos'
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.String(), unique=False, nullable=True)
+    completed = db.Column(db.Boolean, nullable=False, default='False')
 
 #   create
-db.create_all() # create table if not exists
+# this should not be called if flask migrate is used
+# db.create_all() # create table if not exists
 
 
 
@@ -88,3 +95,23 @@ def create_todo_json():
     abort (400)
   else:
     return jsonify(body)
+
+
+# MIGRATIONS ==> Flask-Migrate
+
+# Do not have to drop and recreate tables manually (loosing all data!)
+# Auto-detects changes from the old version & new version of the SQLAlchemy models
+# Creates a migration script that resolves differences between the old & new versions
+
+### how to use? 
+
+# 1 install with pip
+# 2 instantiate
+# 3 db.create_all() should be removed
+# 4 in console: flask db init
+# Creating the migrations directory structure using 
+# 5 run: flask db migrate - detects changes and craetes migration script
+# in migrations directory - versions - new migration script will appear
+# 6 flask db upgrade - run to upgrade DB
+# in migration script there is also method for downgrade
+# 7 flask db downgrade
