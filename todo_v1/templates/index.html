@@ -18,14 +18,42 @@
         <hr class="my-4" />
         <ul id="todos">
           {% for d in data %}
-          <li>{{d.description}}</li>
+          <li class="mb-3" id="{{d.id}}">
+            <input
+              type="checkbox"
+              data-id="{{d.id}}"
+              class="form-check-input"
+              {%
+              if
+              d.completed
+              %}
+              checked
+              {%
+              endif
+              %}name="completed"
+              id="completed"
+            />{{d.description}}
+            <button
+              type="button"
+              class="close"
+              aria-label="Delete"
+              onclick="deleteTodo({{d.id}})"
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </li>
           {% endfor %}
         </ul>
       </div>
 
       <!-- <form action="/create-todo" method="post"> -->
       <form id="form">
-        <div id="error" class="alert alert-danger"  style="display: none;"role="alert">
+        <div
+          id="error"
+          class="alert alert-danger"
+          style="display: none;"
+          role="alert"
+        >
           Error!
         </div>
 
@@ -43,6 +71,45 @@
         <button type="submit" class="btn btn-primary">Submit</button>
       </form>
       <script>
+        function deleteTodo(id) {
+          console.log(`removing: ${id}`);
+          fetch(`/todos/${id}`, {
+            method: "DELETE",
+          })
+            .then(() => (document.getElementById(id).style.display = "none"))
+            .catch(() => {
+              document.getElementById("error").style.display = "block";
+            });
+        }
+
+        function udateCompleted(id, completed) {
+          console.log(`clicked! id: ${id} status: ${completed}`);
+          fetch("/todos/update-completed", {
+            method: "POST",
+            body: JSON.stringify({
+              id,
+              completed,
+            }),
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }).catch(function () {
+            document.getElementById("error").style.display = "block";
+          });
+        }
+
+        function toggleCompleted(e) {
+          id = e.target.attributes["data-id"].value;
+          completed = e.target.checked;
+          udateCompleted(id, completed);
+        }
+
+        document
+          .querySelectorAll('[type="checkbox"]')
+          .forEach((checkbox) =>
+            checkbox.addEventListener("click", (e) => toggleCompleted(e))
+          );
+
         const descInput = document.getElementById("description");
 
         document.getElementById("form").onsubmit = function (e) {
@@ -51,7 +118,7 @@
           const desc = descInput.value;
           if (!desc) {
             console.log("field Empty!");
-            document.getElementById("error").style.display="block"
+            document.getElementById("error").style.display = "block";
 
             return null;
           }
@@ -68,13 +135,23 @@
             .then((response) => response.json())
             .then((jsonResponse) => {
               console.log("response", jsonResponse);
-              li = document.createElement("li");
-              li.innerText = desc;
-              document.getElementById("todos").appendChild(li);
+
+              document.getElementById(
+                "todos"
+              ).innerHTML += `<li class="mb-3" id="${jsonResponse.id}">
+                    <input type="checkbox" data-id="${jsonResponse.id}" class="form-check-input" name="completed" id="completed" 
+                    onclick="(toggleCompleted()"/>
+                    ${jsonResponse.description}
+                    <button type="button" class="close" aria-label="Delete">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </li>`;
               document.getElementById("error").style.display = "none";
+              document.getElementById(jsonResponse.id).addEventListener("click", (e) => toggleCompleted(e))
+
             })
             .catch(function () {
-              document.getElementById("error").style.display="block"
+              document.getElementById("error").style.display = "block";
             });
         };
       </script>

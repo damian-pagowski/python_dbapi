@@ -37,7 +37,10 @@ class Todo(db.Model):
     __tablename__ = 'todos'
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.String(), unique=False, nullable=True)
-    completed = db.Column(db.Boolean, nullable=False, default='False')
+    completed = db.Column(db.Boolean, nullable=False, default=False)
+
+    def __repr__(self):
+        return f'<TODO.  id: {self.id}, description: {self.description}, completed: {self.completed}>'
 
 #   create
 # this should not be called if flask migrate is used
@@ -75,16 +78,21 @@ def create_todo():
 # ...
 import sys
 
-@app.route('/todos/create', methods=['POST'])
-def create_todo_json():
+
+@app.route('/todos/update-completed', methods=['POST'])
+def update_completed():
   error = False
   body = {}
   try:
-    description = request.json['description']
-    todo = Todo(description=description)
-    db.session.add(todo)
+    id = request.json['id']
+    completed = request.json['completed']
+    todo = Todo.query.get(id)
+    print(todo)
+    todo.completed = completed
     db.session.commit()
     body['description'] = todo.description
+    body['id'] = todo.id
+    body['completed'] = todo.completed
   except:
     error = True
     db.session.rollback()
@@ -96,6 +104,50 @@ def create_todo_json():
   else:
     return jsonify(body)
 
+
+@app.route('/todos/create', methods=['POST'])
+def create_todo_json():
+  error = False
+  body = {}
+  try:
+    description = request.json['description']
+    todo = Todo(description=description)
+    db.session.add(todo)
+    db.session.commit()
+    body['description'] = todo.description
+    body['id'] = todo.id
+    body['completed'] = todo.completed
+
+  except:
+    error = True
+    db.session.rollback()
+    print(sys.exc_info())
+  finally:
+    db.session.close()
+  if error:
+    abort (400)
+  else:
+    return jsonify(body)
+
+
+@app.route('/todos/<id>', methods=['DELETE'])
+def remove_todo(id):
+  error = False
+  try:
+    todo = Todo.query.get(id)
+    db.session.delete(todo)
+    db.session.commit()
+  except:
+    error = True
+    db.session.rollback()
+    print(sys.exc_info())
+  finally:
+    db.session.close()
+  if error:
+    abort (400)
+  else:
+    return jsonify({"deleted" : "OK"})
+ 
 
 # MIGRATIONS ==> Flask-Migrate
 
@@ -115,3 +167,43 @@ def create_todo_json():
 # 6 flask db upgrade - run to upgrade DB
 # in migration script there is also method for downgrade
 # 7 flask db downgrade
+
+
+########################
+# Mapping relations
+########################
+
+#### One-To-many
+# 
+# class Todo(db.Model):
+#   __tablename__ = 'todos'
+#   id = db.Column(db.Integer, primary_key=True)
+#   description = db.Column(db.String(), nullable=False)
+#   completed = db.Column(db.Boolean, default=False)
+#   list_id = db.Column(db.Integer, db.ForeignKey('todolists.id'), nullable=False)
+
+#   def __repr__(self):
+#     return f'<Todo {self.id} {self.description}>'
+
+# class TodoList(db.Model):
+#   __tablename__ = 'todolists'
+#   id = db.Column(db.Integer, primary_key=True)
+#   name = db.Column(db.String(), nullable=False)
+#   todos = db.relationship('Todo', backref='list', lazy=True)
+
+###### Many-TO-Many
+# 
+# order_items = db.Table('order_items',
+#     db.Column('order_id', db.Integer, db.ForeignKey('order.id'), primary_key=True),
+#     db.Column('product_id', db.Integer, db.ForeignKey('product.id'), primary_key=True)
+# )
+
+# class Order(db.Model):
+#   id = db.Column(db.Integer, primary_key=True)
+#   status = db.Column(db.String(), nullable=False)
+#   products = db.relationship('Product', secondary=order_items,
+#       backref=db.backref('orders', lazy=True))
+
+# class Product(db.Model):
+#   id = db.Column(db.Integer, primary_key=True)
+#   name = db.Column(db.String(), nullable=False)
